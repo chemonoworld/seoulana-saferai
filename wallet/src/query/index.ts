@@ -3,7 +3,7 @@ import type { ReqShareQuerystring, ReqShareResponse, ReqShareStorePayload } from
 const API_ENDPOINT = "localhost:8080";
 
 async function createPostRequest<T, R>(path: string, payload: T): Promise<R> {
-    const url = `http://${API_ENDPOINT}/${path}`;
+    const url = `http://${API_ENDPOINT}/api/${path}`;
     const ret = await fetch(url, {
         headers: {
             "Content-Type": "application/json",
@@ -19,7 +19,7 @@ async function createGetRequest<R>(path: string, querystring: Object): Promise<R
     const qs = querystring ? Object.entries(querystring)
         .map(([key, value]) => `${key}=${String(value)}`)
         .join("&") : "";
-    const url = `http://${API_ENDPOINT}/${path}?${qs}`;
+    const url = `http://${API_ENDPOINT}/api/${path}?${qs}`;
     const ret = await fetch(url, {
         headers: {
             "Content-Type": "application/json",
