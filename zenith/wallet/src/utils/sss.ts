@@ -24,9 +24,6 @@ export async function splitPrivKey(
             T
         );
 
-        console.log("shares[0]: ", Buffer.from(shares[0]).toString("hex"));
-        console.log("shares[1]: ", Buffer.from(shares[1]).toString("hex"));
-        console.log("shares[2]: ", Buffer.from(shares[2]).toString("hex"));
         // 2 -> server
         await reqShareStore({
             serverActiveKeyshare: Buffer.from(shares[2]).toString("hex"),
@@ -54,8 +51,6 @@ export async function combineShares(
     });
 
     // client0, server split -> recover privKeyShare0
-    console.log("activeSecretKeyshare: ", activeSecretKeyshare);
-    console.log("resp.serverActiveKeyshare: ", resp.serverActiveKeyshare);
     const shares: Uint8Array[] = [
         toUint8Array(activeSecretKeyshare),
         toUint8Array(resp.serverActiveKeyshare),
@@ -63,7 +58,7 @@ export async function combineShares(
 
     const combinedKey = await combine(shares);
 
-    const originalPrivKey = Buffer.from(combinedKey);
+    // const originalPrivKey = Buffer.from(combinedKey);
 
     // verification
     {
