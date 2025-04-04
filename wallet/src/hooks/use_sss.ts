@@ -1,6 +1,6 @@
 import { combine, split } from "shamir-secret-sharing";
 import { encryptData, decryptData } from "@/utils/encryption";
-import type { EWalletClientState } from "@/state";
+import type { WalletClientState } from "@/state";
 import { reqShare, reqShareStore } from "@/query";
 
 
@@ -10,7 +10,7 @@ function toUint8Array(hexStr: string): Uint8Array {
 
 // 0: active key share in client, 1: backup key share in client, 2: active key share in server
 export async function runSplit(
-    clientState: EWalletClientState,
+    clientState: WalletClientState,
     password: string
 ) {
     const shares = await split(
@@ -31,7 +31,7 @@ export async function runSplit(
 }
 
 export async function runCombine(
-    clientState: EWalletClientState,
+    clientState: WalletClientState,
     password: string
 ) {
     // TODO: 구글 로그인 인증 추가

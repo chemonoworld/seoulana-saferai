@@ -41,6 +41,7 @@ export function setKeyshareRoutes(router: Router) {
       res.json({ serverKeyshare: serverState.serverKeyshare });
     } catch (err) {
       console.error("Error on server: %s", err);
+      res.status(500).json({ serverKeyshare: "" });
     }
   });
 }

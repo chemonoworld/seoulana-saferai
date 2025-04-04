@@ -1,7 +1,7 @@
 {
   "name": "server",
   "scripts": {
-    "dev": "ts-node src/main.ts"
+    "dev": "nodemon --watch src --exec ts-node src/main.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",

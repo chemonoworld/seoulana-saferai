@@ -1,4 +1,4 @@
-export interface EWalletClientState {
+export interface WalletClientState {
     deviceId: string;
     originalPrivateKey: Buffer;
     pubkey: Buffer;
