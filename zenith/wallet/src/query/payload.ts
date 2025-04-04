@@ -7,5 +7,5 @@ export interface ReqShareQuerystring {
 }
 
 export interface ReqShareResponse {
-    serverKeyshare: string;
+    serverActiveKeyshare: string;
 }

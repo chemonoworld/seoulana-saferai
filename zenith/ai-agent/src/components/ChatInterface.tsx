@@ -6,7 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState<Array<{text: string, isUser: boolean}>>([
-    { text: "Hello! I'm your SAFERAI chatbot. How can I help you today?", isUser: false }
+    { text: "Hello! I'm your Zenith AI Agent. How can I help you today?", isUser: false }
   ]);
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -60,7 +60,7 @@ const ChatInterface = () => {
   return (
     <div className="flex flex-col h-[70vh] border rounded-lg shadow-sm bg-white">
       <div className="p-4 border-b">
-        <h2 className="text-xl font-semibold">SAFERAI Chatbot</h2>
+        <h2 className="text-xl font-semibold">Zenith AI Agent</h2>
       </div>
       
       <ScrollArea className="flex-1 p-4">

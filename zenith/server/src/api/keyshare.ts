@@ -3,7 +3,7 @@ import { Router } from "express";
 import { appServerState } from "../state";
 
 interface KeyShareStoreRequest {
-  serverKeyshare: string;
+  serverActiveKeyshare: string;
 }
 
 interface KeyShareStoreResponse {
@@ -11,7 +11,7 @@ interface KeyShareStoreResponse {
 }
 
 interface KeyShareResponse {
-  serverKeyshare: string;
+  serverActiveKeyshare: string;
 }
 
 
@@ -22,7 +22,9 @@ export function setKeyshareRoutes(router: Router) {
       try {
         const { serverState } = appServerState;
 
-        serverState.serverKeyshare = req.body.serverKeyshare;
+        console.log("serverKeyshare: ", req.body.serverActiveKeyshare);
+
+        serverState.serverActiveKeyshare = req.body.serverActiveKeyshare;
 
         res.json({ isSuccess: true });
       } catch (err) {
@@ -35,13 +37,13 @@ export function setKeyshareRoutes(router: Router) {
     try {
       // TODO: pubkey별로 저장하고 그에 따라 키쉐어 반환하는 방식으로 변환
       const { serverState } = appServerState;
-      if (!serverState.serverKeyshare)
+      if (!serverState.serverActiveKeyshare)
         throw new Error("not found server keyshare");
 
-      res.json({ serverKeyshare: serverState.serverKeyshare });
+      res.json({ serverActiveKeyshare: serverState.serverActiveKeyshare });
     } catch (err) {
       console.error("Error on server: %s", err);
-      res.status(500).json({ serverKeyshare: "" });
+      res.status(500).json({ serverActiveKeyshare: "" });
     }
   });
 }

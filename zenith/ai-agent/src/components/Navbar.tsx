@@ -16,7 +16,7 @@ const Navbar = ({ className, toggleWallet }: NavbarProps) => {
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-web3-purple to-web3-blue flex items-center justify-center shadow-md">
               <span className="text-white font-bold text-xs">SR</span>
             </div>
-            <span className="font-bold text-xl hidden sm:inline-block">SAFERAI CHAT</span>
+            <span className="font-bold text-xl hidden sm:inline-block">ZENITH AI AGENT</span>
           </a>
         </div>
         <nav className="flex items-center space-x-4 lg:space-x-6 mx-6">

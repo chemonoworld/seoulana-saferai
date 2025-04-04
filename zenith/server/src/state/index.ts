@@ -1,10 +1,10 @@
-export type EWalletServerState = {
-  serverKeyshare: string | null;
+export type WalletServerState = {
+  serverActiveKeyshare: string | null;
 };
 
-function makeServerState(): EWalletServerState {
+function makeServerState(): WalletServerState {
   return {
-    serverKeyshare: null,
+    serverActiveKeyshare: null,
   };
 }
 
@@ -17,5 +17,5 @@ export const appServerState: AppServerState = (() => {
 })();
 
 export interface AppServerState {
-  serverState: EWalletServerState;
+  serverState: WalletServerState;
 }

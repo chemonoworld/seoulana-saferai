@@ -23,7 +23,7 @@ const WalletWidget = ({ isOpen, className }: WalletWidgetProps) => {
       <div className="w-full h-full bg-gradient-to-br from-web3-purple to-web3-blue p-1 rounded-lg">
         <div className="bg-white dark:bg-gray-900 w-full h-full rounded-md overflow-hidden">
           <div className="bg-gray-100 dark:bg-gray-800 p-3 border-b">
-            <h3 className="font-semibold text-center">SAFERAI Wallet</h3>
+            <h3 className="font-semibold text-center">ZENITH Wallet</h3>
           </div>
           <iframe 
             src={walletUrl} 

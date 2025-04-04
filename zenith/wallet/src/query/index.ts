@@ -31,11 +31,11 @@ async function createGetRequest<R>(path: string, querystring: Object): Promise<R
 }
 
 export async function reqShareStore(payload: ReqShareStorePayload): Promise<void> {
-    await createPostRequest("/keyshare", payload);
+    await createPostRequest("keyshare", payload);
 }
 
 export async function reqShare(querystring: ReqShareQuerystring): Promise<ReqShareResponse> {
-    const resp = await createGetRequest<ReqShareResponse>("/keyshare", querystring);
+    const resp = await createGetRequest<ReqShareResponse>("keyshare", querystring);
     return resp;
 }
 
