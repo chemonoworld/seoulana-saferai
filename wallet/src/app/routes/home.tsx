@@ -1,6 +1,6 @@
 import type { Route } from "./+types/home";
 
-import { EmbeddedWallet } from "@/components/wallet_example/wallet_example";
+import EmbeddedWallet from "@/components/embedded_wallet/embedded_wallet";
 
 export function meta({}: Route.MetaArgs) {
   return [
