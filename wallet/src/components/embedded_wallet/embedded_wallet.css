@@ -1,0 +1,33 @@
+.wrapper {
+  height: 600px;
+  padding: 14px;
+
+  background-color: white;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  /* border: 1px solid black; */
+}
+
+.title {
+  font-size: 1.2em;
+  font-weight: 600;
+}
+
+.host {
+  font-size: 0.9em;
+}
+
+.normalSection {
+  margin-top: 20px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.stepsContainer {
+  padding-top: 12px;
+}
