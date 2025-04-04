@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { cn } from '@/lib/utils';
 
@@ -16,9 +15,8 @@ const WalletWidget = ({ isOpen, className }: WalletWidgetProps) => {
     className
   );
 
-  // For demo purposes, using a placeholder wallet URL
-  // Replace with your actual embedded wallet URL in production
-  const walletUrl = "about:blank";
+  // Using localhost:5173 which is the default Vite dev server port
+  const walletUrl = "http://localhost:5173";
 
   return (
     <div className={widgetClasses}>
@@ -29,9 +27,10 @@ const WalletWidget = ({ isOpen, className }: WalletWidgetProps) => {
           </div>
           <iframe 
             src={walletUrl} 
-            className="wallet-iframe"
+            className="w-full h-[calc(100%-48px)]"
             title="Embedded Wallet"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-storage-access-by-user-activation"
+            referrerPolicy="no-referrer"
           />
         </div>
       </div>
