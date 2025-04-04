@@ -25,8 +25,8 @@ export const useWallet = () => {
         setAddress(keypair.publicKey.toBase58());
         const secretKey = Buffer.from(keypair.secretKey.slice(0, 32));
         const { clientActiveKeyshare, clientBackupKeyshare } = await splitPrivKey(secretKey);
-        setActivePrivKeyshare(Buffer.from(clientActiveKeyshare).toString('hex'));
-        setBackupPrivKeyshare(Buffer.from(clientBackupKeyshare).toString('hex'));
+        setActivePrivKeyshare(clientActiveKeyshare)
+        setBackupPrivKeyshare(clientBackupKeyshare)
     }
 
     async function generateWalletFromSecretKey(originalSecretKey: Buffer) {
@@ -39,14 +39,12 @@ export const useWallet = () => {
         setAddress(keypair.publicKey.toBase58());
         const privKey = Buffer.from(keypair.secretKey.slice(0, 32));
         const { clientActiveKeyshare, clientBackupKeyshare } = await splitPrivKey(privKey);
-        setActivePrivKeyshare(Buffer.from(clientActiveKeyshare).toString('hex'));
-        setBackupPrivKeyshare(Buffer.from(clientBackupKeyshare).toString('hex'));
+        setActivePrivKeyshare(clientActiveKeyshare);
+        setBackupPrivKeyshare(clientBackupKeyshare);
     }
 
     function recoverWalletState(info: WalletInfo, password: string) {
-        console.log("info.encryptedPrivKeyshare: ", info.encryptedPrivKeyshare);
         const decryptedPrivKeyshare = decryptData(info.encryptedPrivKeyshare, password);
-        console.log("decryptedPrivKeyshare: ", decryptedPrivKeyshare);
         setActivePrivKeyshare(decryptedPrivKeyshare);
         setBackupPrivKeyshare(null);
         setPubkey(info.pubkey);

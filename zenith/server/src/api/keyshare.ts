@@ -22,7 +22,6 @@ export function setKeyshareRoutes(router: Router) {
       try {
         const { serverState } = appServerState;
 
-        console.log("serverKeyshare: ", req.body.serverActiveKeyshare);
 
         serverState.serverActiveKeyshare = req.body.serverActiveKeyshare;
 
