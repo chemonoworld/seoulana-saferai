@@ -1,5 +1,5 @@
 {
-  "name": "server",
+  "name": "zenith-server",
   "scripts": {
     "dev": "nodemon --watch src --exec ts-node src/main.ts"
   },
