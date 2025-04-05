@@ -30,12 +30,6 @@ const Navbar = ({ className, toggleWallet }: NavbarProps) => {
             href="/"
             className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
           >
-            Features
-          </a>
-          <a
-            href="/"
-            className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary"
-          >
             Docs
           </a>
         </nav>
