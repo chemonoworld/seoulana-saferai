@@ -10,6 +10,8 @@ const EmbeddedWallet = () => {
   const [error, setError] = useState<string | null>(null);
   const [inputSecretKey, setInputSecretKey] = useState<string | null>(null);
   const [balanceFormatted, setBalanceFormatted] = useState<number | null>(null);
+  const [isBackupConfirmed, setIsBackupConfirmed] = useState(false);
+  const [showBackupKeyModal, setShowBackupKeyModal] = useState(false);
   
   // 모달 상태
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -26,7 +28,7 @@ const EmbeddedWallet = () => {
     return crypto.SHA256(fingerprint).toString().substring(0, 16);
   };
 
-  const { activePrivKeyshare, pubkey, address, balance, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState } = useWallet();
+  const { activePrivKeyshare, backupPrivKeyshare, pubkey, address, balance, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState } = useWallet();
 
   // 지갑 생성 함수
   const createWallet = () => {
@@ -50,12 +52,21 @@ const EmbeddedWallet = () => {
         setWallet(newWallet);
         localStorage.setItem('zenith-wallet', JSON.stringify(newWallet));
         setShowCreateModal(false);
-        refreshBalance();
+        
+        // 백업 키 표시 모달 열기
+        setShowBackupKeyModal(true);
       } catch (err) {
         console.error("Error saving wallet:", err);
         setError("An error occurred while saving wallet.");
       }
     }
+  };
+
+  // 백업 키 확인 완료
+  const handleBackupConfirm = () => {
+    setShowBackupKeyModal(false);
+    setIsBackupConfirmed(true);
+    refreshBalance();
   };
 
   // 기존 비밀키로 지갑 생성
@@ -102,6 +113,7 @@ const EmbeddedWallet = () => {
         setWallet(JSON.parse(storedWallet));
         await recoverWalletState(JSON.parse(storedWallet), password);
         setShowUnlockModal(false);
+        setIsBackupConfirmed(true); // 잠금 해제 시에는 백업이 완료된 것으로 간주
       } catch (err) {
         console.error("Wallet unlock error:", err);
         setError("The password is incorrect.");
@@ -114,6 +126,7 @@ const EmbeddedWallet = () => {
     localStorage.removeItem('zenith-wallet');
     setWallet(null);
     resetKeypair();
+    setIsBackupConfirmed(false);
   };
 
   return (
@@ -151,28 +164,40 @@ const EmbeddedWallet = () => {
         </div>
       ) : (
         <div className="mt-4">
-          <div className="p-3 bg-gray-50 rounded-lg mb-4">
-            <section className="mb-2">
-              <span className="text-sm font-semibold text-gray-600">Address:</span>
-              <p className="text-sm font-mono break-all">{wallet.address}</p>
-            </section>
-            <section className="mb-2">
-              <span className="text-sm font-semibold text-gray-600">Balance:</span>
-              <p className="text-sm font-mono break-all">{balanceFormatted} SOL</p>
-              <button 
-                onClick={refreshBalance}
-                className="mt-2 py-1 px-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          {isBackupConfirmed ? (
+            <div className="p-3 bg-gray-50 rounded-lg mb-4">
+              <section className="mb-2">
+                <span className="text-sm font-semibold text-gray-600">Address:</span>
+                <p className="text-sm font-mono break-all">{wallet.address}</p>
+              </section>
+              <section className="mb-2">
+                <span className="text-sm font-semibold text-gray-600">Balance:</span>
+                <p className="text-sm font-mono break-all">{balanceFormatted} SOL</p>
+                <button 
+                  onClick={refreshBalance}
+                  className="mt-2 py-1 px-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                >
+                  Refresh
+                </button>
+              </section>
+              <button
+                onClick={resetWallet}
+                className="flex-1 py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700"
               >
-                Refresh
+                Reset Wallet
               </button>
-            </section>
-            <button
-              onClick={resetWallet}
-              className="flex-1 py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700"
-            >
-              Reset Wallet
-            </button>
-          </div>
+            </div>
+          ) : (
+            <div className="p-3 bg-gray-50 rounded-lg mb-4 text-center">
+              <p className="text-red-600 font-bold mb-3">Please back up your private key share first!</p>
+              <button
+                onClick={() => setShowBackupKeyModal(true)}
+                className="py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Back Up Private Key Share
+              </button>
+            </div>
+          )}
         </div>
       )}
 
@@ -193,6 +218,33 @@ const EmbeddedWallet = () => {
         title="Unlock Wallet"
         buttonText="Unlock"
       />
+
+      {/* 백업 키 표시 모달 */}
+      {showBackupKeyModal && (
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full">
+            <h2 className="text-xl font-semibold mb-4">Backup Private Key Share</h2>
+            <div className="mb-6">
+              <p className="text-red-600 font-bold mb-2">⚠️ Important: Store this backup key share in a safe place!</p>
+              <p className="mb-4 text-sm text-gray-700">
+                This backup key share is essential for wallet recovery. You will lose access to your assets if lost.
+                Take a screenshot or save it in a secure location.
+              </p>
+              <div className="p-3 bg-gray-100 rounded-lg break-all font-mono text-sm mb-4">
+                {backupPrivKeyshare}
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <button
+                onClick={handleBackupConfirm}
+                className="py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700"
+              >
+                Backup Complete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

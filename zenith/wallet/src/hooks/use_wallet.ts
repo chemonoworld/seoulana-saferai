@@ -58,10 +58,8 @@ export const useWallet = () => {
 
         // 32 bytes -> expanded(64 bytes)
         console.log("originalPrivKey", originalPrivKey);
-        if (!pubkey) {
-            throw new Error("Pubkey is not set");
-        }
-        const expandedPrivKey = Buffer.concat([originalPrivKey, Buffer.from(pubkey, 'hex')]);
+
+        const expandedPrivKey = Buffer.concat([originalPrivKey, Buffer.from(info.pubkey, 'hex')]);
         setRecoveredKeypair(Keypair.fromSecretKey(expandedPrivKey));
     }
 
@@ -80,6 +78,7 @@ export const useWallet = () => {
 
     return {
         activePrivKeyshare,
+        backupPrivKeyshare,
         pubkey,
         address,
         balance,
