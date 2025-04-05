@@ -4,10 +4,15 @@
     "dev": "nodemon --watch src --exec ts-node src/main.ts"
   },
   "dependencies": {
+    "@langchain/core": "^0.3.43",
+    "@langchain/openai": "^0.5.4",
     "cors": "^2.8.5",
     "express": "^4.21.1",
     "helmet": "^8.0.0",
-    "morgan": "^1.10.0"
+    "langchain": "^0.3.20",
+    "langchain-core": "^0.0.4",
+    "morgan": "^1.10.0",
+    "zod": "^3.24.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
