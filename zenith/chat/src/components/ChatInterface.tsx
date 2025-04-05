@@ -1,12 +1,28 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { Send } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
+// Embedded wallet URL configuration (should be restricted to specific origin in production)
+const EMBEDDED_WALLET_URL = '*';
+
+// Message type definition
+interface ChatMessage {
+  text: string;
+  isUser: boolean;
+}
+
+// Response message type definition
+interface ResponseMessage {
+  type: string;
+  response: string;
+  status: 'success' | 'error' | 'info';
+  data?: any;
+}
+
 const ChatInterface = () => {
-  const [messages, setMessages] = useState<Array<{text: string, isUser: boolean}>>([
-    { text: "Hello! I'm your Zenith AI Agent. How can I help you today?", isUser: false }
+  const [messages, setMessages] = useState<ChatMessage[]>([
+    { text: "Hello! I'm Zenith AI Agent. How can I help you today?", isUser: false }
   ]);
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -20,6 +36,35 @@ const ChatInterface = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Add response message listener
+  useEffect(() => {
+    const handleWalletResponse = (event: MessageEvent) => {
+      // Message format validation
+      if (event.data && typeof event.data === 'object' && 
+          'type' in event.data && event.data.type === 'response' &&
+          'response' in event.data && 'status' in event.data) {
+        
+        const responseData = event.data as ResponseMessage;
+        console.log('Received response from wallet:', responseData);
+        
+        // Include status in messages for styling
+        setMessages(prev => [...prev, { 
+          text: responseData.response,
+          isUser: false
+        }]);
+        
+        // Set processing complete
+        setIsProcessing(false);
+      }
+    };
+    
+    window.addEventListener('message', handleWalletResponse);
+    
+    return () => {
+      window.removeEventListener('message', handleWalletResponse);
+    };
+  }, []);
 
   // Add effect to focus input when processing completes
   useEffect(() => {
@@ -37,17 +82,51 @@ const ChatInterface = () => {
     // Add user message
     setMessages(prev => [...prev, { text: inputValue, isUser: true }]);
     
+    // Send message to embedded wallet using postMessage
+    try {
+      // Format message in standardized format
+      const message = {
+        type: "text",
+        prompt: inputValue
+      };
+      
+      // Send message to parent window (if embedded wallet is in parent window)
+      window.parent.postMessage(message, EMBEDDED_WALLET_URL);
+      console.log('Message sent to embedded wallet:', message);
+      
+      // Also send message to top window (for complex iframe structures)
+      if (window.top !== window.parent) {
+        window.top.postMessage(message, EMBEDDED_WALLET_URL);
+      }
+    } catch (error) {
+      console.error('Error sending message to embedded wallet:', error);
+      
+      // Release processing state on error
+      setIsProcessing(false);
+      
+      // Add error message
+      setMessages(prev => [...prev, { 
+        text: "An error occurred while sending the message. Please try again.", 
+        isUser: false 
+      }]);
+    }
+    
     // Clear input immediately
     setInputValue('');
     
-    // Simulate bot response
-    setTimeout(() => {
-      setMessages(prev => [...prev, { 
-        text: "I'm still learning. I'll be able to provide better answers soon!", 
-        isUser: false 
-      }]);
-      setIsProcessing(false);
-    }, 1000);
+    // Add waiting message if response takes more than 3 seconds
+    const timeoutId = setTimeout(() => {
+      // Only add message if still processing (no response received yet)
+      if (isProcessing) {
+        setMessages(prev => [...prev, { 
+          text: "Waiting for response...", 
+          isUser: false 
+        }]);
+      }
+    }, 3000);
+    
+    // Cleanup function
+    return () => clearTimeout(timeoutId);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
