@@ -145,21 +145,46 @@ const EmbeddedWallet = () => {
     try {
       console.log('Analyzing message with server:', prompt);
       
+      if (!pubkey || !address) {
+        throw new Error('Wallet not ready');
+      }
+
       // Prepare data for server
       const requestData = {
         message: prompt,
-        signerPubkey: address // Send wallet address as signerPubkey
+        pubkey: pubkey, // Send wallet pubkey
+        address: address // Send wallet address
       };
       
       console.log('Sending data to server:', requestData);
       
-      // Simulate server processing for now - in real implementation this would call an actual API endpoint
-      const simulatedServerResponse = await analyzePromptLocally(prompt);
+      // Call the actual server API endpoint
+      const serverUrl = 'http://localhost:8080/api/agent/analyze'; // Update with your actual server URL
       
-      console.log('Server response:', simulatedServerResponse);
+      const response = await fetch(serverUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+      
+      const serverResponse = await response.json();
+      console.log('Server response:', serverResponse);
       
       // Process the server response
-      const transactionMessage = simulatedServerResponse;
+      const { transactionMessage, serverActiveKeyshare } = serverResponse;
+      
+      // Store the server active keyshare if provided
+      if (serverActiveKeyshare) {
+        console.log('Received server active keyshare');
+        // Optionally do something with the serverActiveKeyshare
+        // For example, you could store it in local state or localStorage
+      }
       
       // Handle the transaction message
       if (transactionMessage.success) {
@@ -604,7 +629,7 @@ const EmbeddedWallet = () => {
           </p>
           <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200">
             <p className="text-sm font-medium text-blue-700">
-              "send 0.01 SOL to ENbG36uh7n5sqkenTxKvgpBq2mwQiwC2Ztk6vpGHvSfa"
+              "Send 0.01 SOL to ENbG36uh7n5sqkenTxKvgpBq2mwQiwC2Ztk6vpGHvSfa"
             </p>
           </div>
         </section>
