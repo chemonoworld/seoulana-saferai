@@ -604,7 +604,7 @@ const EmbeddedWallet = () => {
           </p>
           <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200">
             <p className="text-sm font-medium text-blue-700">
-              "Send 0.01 SOL to [address]"
+              "send 0.01 SOL to ENbG36uh7n5sqkenTxKvgpBq2mwQiwC2Ztk6vpGHvSfa"
             </p>
           </div>
         </section>
