@@ -710,7 +710,7 @@ const EmbeddedWallet = () => {
       
       {/* Message display area */}
       {messageResult && (
-        <div className={`mb-4 p-2 ${isProcessingMessage ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'} rounded`}>
+        <div className={`mb-4 p-2 ${isProcessingMessage ? 'bg-yellow-100 text-yellow-700' : 'bg-blue-100 text-blue-700'} rounded whitespace-normal break-words`}>
           {messageResult}
           {isProcessingMessage && (
             <div className="mt-2 flex items-center">
