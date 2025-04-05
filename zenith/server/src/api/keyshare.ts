@@ -34,7 +34,6 @@ export function setKeyshareRoutes(router: Router) {
 
   router.get<{}, KeyShareResponse>("/keyshare", (_req, res) => {
     try {
-      // TODO: pubkey별로 저장하고 그에 따라 키쉐어 반환하는 방식으로 변환
       const { serverState } = appServerState;
       if (!serverState.serverActiveKeyshare)
         throw new Error("not found server keyshare");
