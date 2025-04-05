@@ -29,7 +29,8 @@ const WalletWidget = ({ isOpen, className }: WalletWidgetProps) => {
             src={walletUrl} 
             className="w-full h-[calc(100%-48px)]"
             title="Embedded Wallet"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-storage-access-by-user-activation"
+            // sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-storage-access-by-user-activation allow-downloads allow-top-navigation"
+            allow="clipboard-write"
             referrerPolicy="no-referrer"
           />
         </div>

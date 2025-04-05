@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Navbar from '@/components/Navbar';
 import ChatInterface from '@/components/ChatInterface';
@@ -6,7 +5,7 @@ import WalletButton from '@/components/WalletButton';
 import WalletWidget from '@/components/WalletWidget';
 
 const Index = () => {
-  const [isWalletOpen, setIsWalletOpen] = useState(false);
+  const [isWalletOpen, setIsWalletOpen] = useState(true);
 
   const toggleWallet = () => {
     setIsWalletOpen(!isWalletOpen);

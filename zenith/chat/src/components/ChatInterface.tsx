@@ -4,12 +4,18 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 // Embedded wallet URL configuration (should be restricted to specific origin in production)
-const EMBEDDED_WALLET_URL = '*';
+const EMBEDDED_WALLET_URL = 'http://localhost:5173';
 
 // Message type definition
 interface ChatMessage {
   text: string;
   isUser: boolean;
+}
+
+// API message type definition
+interface ApiMessage {
+  type: string;
+  prompt: string;
 }
 
 // Response message type definition
@@ -22,7 +28,7 @@ interface ResponseMessage {
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { text: "Hello! I'm Zenith AI Agent. How can I help you today?", isUser: false }
+    { text: "Hello! I'm Zenith AI Agent. How can I assist you today?", isUser: false }
   ]);
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -102,18 +108,27 @@ const ChatInterface = () => {
     // Send message to embedded wallet using postMessage
     try {
       // Format message in standardized format
-      const message = {
+      const message: ApiMessage = {
         type: "text",
         prompt: inputValue
       };
       
-      // Send message to parent window (if embedded wallet is in parent window)
-      window.parent.postMessage(message, EMBEDDED_WALLET_URL);
-      console.log('Message sent to embedded wallet:', message);
+      // Try to find wallet iframe and send message directly to it
+      const walletFrame = document.querySelector('iframe[src*="wallet"]') || 
+                          document.querySelector('iframe[title="Embedded Wallet"]');
       
-      // Also send message to top window (for complex iframe structures)
-      if (window.top !== window.parent) {
-        window.top.postMessage(message, EMBEDDED_WALLET_URL);
+      if (walletFrame) {
+        try {
+          (walletFrame as HTMLIFrameElement).contentWindow?.postMessage(message, EMBEDDED_WALLET_URL);
+          console.log('Message sent to wallet iframe:', message);
+        } catch (frameError) {
+          console.error('Error sending to iframe:', frameError);
+          throw frameError; // Re-throw to be caught by outer catch
+        }
+      } else {
+        // Fallback to parent window if iframe not found
+        window.parent.postMessage(message, EMBEDDED_WALLET_URL);
+        console.log('Message sent to parent window:', message);
       }
     } catch (error) {
       console.error('Error sending message to embedded wallet:', error);
@@ -123,7 +138,7 @@ const ChatInterface = () => {
       
       // Add error message
       setMessages(prev => [...prev, { 
-        text: "An error occurred while sending the message. Please try again.", 
+        text: "An error occurred while sending your message. Please try again.", 
         isUser: false 
       }]);
     }
@@ -136,7 +151,7 @@ const ChatInterface = () => {
       // Only add message if still processing (no response received yet)
       if (isProcessing) {
         setMessages(prev => [...prev, { 
-          text: "Waiting for response...", 
+          text: "Processing your request...", 
           isUser: false 
         }]);
       }

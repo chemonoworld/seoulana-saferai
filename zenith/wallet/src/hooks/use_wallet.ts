@@ -74,41 +74,41 @@ export const useWallet = () => {
     }
 
     /**
-     * 특정 주소로 0.01 SOL을 전송합니다
-     * @param recipientAddress 받는 사람의 지갑 주소 (base58 형식)
-     * @returns 트랜잭션 서명 (성공 시) 또는 에러 메시지 (실패 시)
+     * Sends 0.01 SOL to a specific address
+     * @param recipientAddress Recipient wallet address (base58 format)
+     * @returns Transaction signature (if successful) or error message (if failed)
      */
     async function sendTransaction(recipientAddress: string): Promise<{ success: boolean; message: string; signature?: string }> {
         try {
-            // 키페어 확인
+            // Check keypair
             if (!recoveredKeypair) {
-                return { success: false, message: "복구된 키페어가 없습니다. 먼저 지갑을 불러오세요." };
+                return { success: false, message: "No recovered keypair found. Please load your wallet first." };
             }
 
-            // 수신자 주소 유효성 검사
+            // Validate recipient address
             let recipientPubkey: PublicKey;
             try {
                 recipientPubkey = new PublicKey(recipientAddress);
             } catch (error) {
-                return { success: false, message: "유효하지 않은 수신자 주소입니다." };
+                return { success: false, message: "Invalid recipient address." };
             }
 
-            // 보낼 금액 (0.01 SOL = 10_000_000 Lamports)
+            // Amount to send (0.01 SOL = 10_000_000 Lamports)
             const amountInLamports = 0.01 * LAMPORTS_PER_SOL;
 
-            // 연결 생성
+            // Create connection
             const connection = new Connection(DEVNET_RPC_URL, 'confirmed');
 
-            // 전송자 잔액 확인
+            // Check sender balance
             const senderBalance = await connection.getBalance(recoveredKeypair.publicKey);
-            if (senderBalance < amountInLamports + 5000) { // 5000 lamports는 트랜잭션 수수료 예상치
-                return { success: false, message: "잔액이 부족합니다. 최소 0.01 SOL + 수수료가 필요합니다." };
+            if (senderBalance < amountInLamports + 5000) { // 5000 lamports for estimated transaction fee
+                return { success: false, message: "Insufficient balance. You need at least 0.01 SOL + fee." };
             }
 
-            // 최근 블록해시 가져오기
+            // Get recent blockhash
             const { blockhash } = await connection.getLatestBlockhash();
 
-            // 트랜잭션 생성
+            // Create transaction
             const transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: recoveredKeypair.publicKey,
@@ -117,30 +117,30 @@ export const useWallet = () => {
                 })
             );
 
-            // 블록해시 설정
+            // Set blockhash and fee payer
             transaction.recentBlockhash = blockhash;
             transaction.feePayer = recoveredKeypair.publicKey;
 
-            // 트랜잭션 서명 및 전송
+            // Sign and send transaction
             const signature = await sendAndConfirmTransaction(
                 connection,
                 transaction,
                 [recoveredKeypair]
             );
 
-            // 잔액 새로고침
+            // Refresh balance
             await refreshBalance();
 
             return {
                 success: true,
-                message: "0.01 SOL을 성공적으로 전송했습니다.",
+                message: "Successfully sent 0.01 SOL.",
                 signature
             };
         } catch (error) {
-            console.error("트랜잭션 전송 오류:", error);
+            console.error("Transaction error:", error);
             return {
                 success: false,
-                message: `트랜잭션 전송 중 오류가 발생했습니다: ${error instanceof Error ? error.message : String(error)}`
+                message: `Error during transaction: ${error instanceof Error ? error.message : String(error)}`
             };
         }
     }
