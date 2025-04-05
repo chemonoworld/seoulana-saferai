@@ -610,7 +610,7 @@ const EmbeddedWallet = () => {
       <div className="flex flex-col gap-4">
         <section className="p-4 bg-gray-50 rounded-lg">
           <h3 className="font-medium text-gray-800 mb-2">Wallet Info</h3>
-          <p className="text-sm text-gray-600 break-all">Address: {address}</p>
+          <p className="text-sm text-gray-600 break-all whitespace-normal">Address: {address}</p>
           <p className="text-sm text-gray-600 mt-1">
             Balance: {balanceFormatted !== null ? `${balanceFormatted} SOL` : 'Loading...'}
             <button
@@ -628,7 +628,7 @@ const EmbeddedWallet = () => {
             Your wallet is ready to send and receive transactions. Use the chat interface to send SOL by typing commands like:
           </p>
           <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200">
-            <p className="text-sm font-medium text-blue-700">
+            <p className="text-sm font-medium text-blue-700 whitespace-normal break-words">
               "Send 0.01 SOL to ENbG36uh7n5sqkenTxKvgpBq2mwQiwC2Ztk6vpGHvSfa"
             </p>
           </div>
