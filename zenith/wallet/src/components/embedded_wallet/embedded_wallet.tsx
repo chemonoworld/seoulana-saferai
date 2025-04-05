@@ -32,6 +32,12 @@ enum TransactionType {
   UNKNOWN = 'UNKNOWN',
 }
 
+// Pending transaction interface
+interface PendingTransaction {
+  amount: string;
+  recipientAddress: string;
+}
+
 const EmbeddedWallet = () => {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +50,9 @@ const EmbeddedWallet = () => {
   const [receivedMessage, setReceivedMessage] = useState<ChatMessage | null>(null);
   const [messageResult, setMessageResult] = useState<string | null>(null);
   const [isProcessingMessage, setIsProcessingMessage] = useState(false);
+  
+  // Transaction related states
+  const [pendingTransaction, setPendingTransaction] = useState<PendingTransaction | null>(null);
   
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -74,63 +83,83 @@ const EmbeddedWallet = () => {
         data
       };
       
-      // Send message to all possible targets
-      window.parent.postMessage(responseMessage, '*');
+      console.log('Sending response message:', responseMessage);
       
-      if (window.opener) {
-        window.opener.postMessage(responseMessage, '*');
+      // Find all possible targets
+      const targets = [];
+      
+      // Parent window
+      if (window.parent && window.parent !== window) {
+        targets.push({ target: window.parent, origin: '*' });
       }
       
-      console.log('Response message sent:', responseMessage);
+      // Opener window
+      if (window.opener) {
+        targets.push({ target: window.opener, origin: '*' });
+      }
+      
+      // In case we're in an iframe, try to reach the parent's parent too
+      if (window.parent && window.parent.parent && window.parent.parent !== window.parent) {
+        targets.push({ target: window.parent.parent, origin: '*' });
+      }
+      
+      // Try direct document.referrer origin if possible
+      const referrerOrigin = document.referrer ? new URL(document.referrer).origin : null;
+      
+      // Send to all possible targets
+      if (targets.length > 0) {
+        targets.forEach(({ target, origin }) => {
+          try {
+            target.postMessage(responseMessage, origin);
+            console.log(`Response sent to target:`, target, 'with origin:', origin);
+          } catch (err) {
+            console.error('Error sending to target:', err);
+          }
+        });
+      } else {
+        // Fallback to broadcasting to all potential chat origins
+        const potentialOrigins = [
+          'http://localhost:3000',  // Chat app local dev
+          'http://localhost:5173',  // Wallet app local dev
+          referrerOrigin,           // Try referrer if available
+          '*'                       // Last resort
+        ].filter(Boolean); // Remove nulls
+        
+        potentialOrigins.forEach(origin => {
+          try {
+            window.parent.postMessage(responseMessage, origin as string);
+            console.log('Response broadcast to origin:', origin);
+          } catch (err) {
+            console.error(`Error broadcasting to origin ${origin}:`, err);
+          }
+        });
+      }
     } catch (error) {
-      console.error('Error sending response message:', error);
+      console.error('Error in postMessageResponse:', error);
     }
   };
 
   // Function to analyze message with server
   const analyzeMessageWithServer = async (prompt: string): Promise<void> => {
-    if (!prompt) return;
-    
     setIsProcessingMessage(true);
-    setMessageResult(`Processing message: "${prompt}"`);
-    
-    const requestUrl = `${SERVER_URL}/agent/analyze`;
-    const requestBody = JSON.stringify({ message: prompt });
-    
-    console.log('Sending request to:', requestUrl);
-    console.log('Request body:', requestBody);
-    
     try {
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: requestBody,
-      });
+      console.log('Analyzing message with server:', prompt);
       
-      console.log('Server response status:', response.status);
-      console.log('Server response headers:', Object.fromEntries([...response.headers.entries()]));
+      // Prepare data for server
+      const requestData = {
+        message: prompt,
+        signerPubkey: address // Send wallet address as signerPubkey
+      };
       
-      if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Failed to read error response');
-        console.error('Error response body:', errorText);
-        throw new Error(`Server responded with status: ${response.status}, body: ${errorText}`);
-      }
+      console.log('Sending data to server:', requestData);
       
-      const data = await response.json();
-      console.log('Server analysis:', data);
+      // Simulate server processing for now - in real implementation this would call an actual API endpoint
+      const simulatedServerResponse = await analyzePromptLocally(prompt);
       
-      if (!data.success) {
-        postMessageResponse(
-          `Error from server: ${data.error || 'Unknown error analyzing your message'}`,
-          'error'
-        );
-        setMessageResult(`Error from server: ${data.error || 'Unknown error'}`);
-        return;
-      }
+      console.log('Server response:', simulatedServerResponse);
       
-      const { transactionMessage } = data;
+      // Process the server response
+      const transactionMessage = simulatedServerResponse;
       
       // Handle the transaction message
       if (transactionMessage.success) {
@@ -138,74 +167,122 @@ const EmbeddedWallet = () => {
           case TransactionType.TRANSFER_SOL:
             setMessageResult(`Preparing to send ${transactionMessage.data.amount} SOL to ${transactionMessage.data.recipientAddress}`);
             
-            // Call the send transaction function
-            if (wallet && isBackupConfirmed) {
-              try {
-                const result = await sendTransaction(transactionMessage.data.recipientAddress);
-                
-                // Send the result back to the chat component
-                if (result.success) {
-                  postMessageResponse(
-                    `Successfully sent ${transactionMessage.data.amount} SOL to ${transactionMessage.data.recipientAddress}.\nTransaction signature: ${result.signature}`,
-                    'success',
-                    result
-                  );
-                  setMessageResult(`Transaction successful: ${result.message}`);
-                } else {
-                  postMessageResponse(`Transaction failed: ${result.message}`, 'error', result);
-                  setMessageResult(`Transaction failed: ${result.message}`);
-                }
-              } catch (error) {
-                postMessageResponse(
-                  `Error executing transaction: ${error instanceof Error ? error.message : String(error)}`,
-                  'error'
-                );
-                setMessageResult(`Error executing transaction: ${error instanceof Error ? error.message : String(error)}`);
-              }
-            } else {
-              postMessageResponse(
-                'Wallet not ready for transactions. Please create and back up your wallet first.',
-                'error'
-              );
-              setMessageResult('Wallet not ready for transactions');
-            }
-            break;
-            
-          default:
+            // Send confirmation request to chat interface
             postMessageResponse(
-              `Unsupported transaction type: ${transactionMessage.transactionType}`,
-              'error'
+              `Would you like to send ${transactionMessage.data.amount} SOL to ${transactionMessage.data.recipientAddress}?`,
+              'info',
+              {
+                type: 'confirmation',
+                action: 'transfer',
+                data: transactionMessage.data
+              }
             );
-            setMessageResult(`Unsupported transaction type: ${transactionMessage.transactionType}`);
+            
+            // Store the pending transaction for later execution
+            setPendingTransaction(transactionMessage.data);
+            break;
+          case TransactionType.NFT_MINT:
+            setMessageResult('NFT minting request detected - this feature is not yet implemented');
+            break;
+          default:
+            setMessageResult('Unknown transaction type requested');
             break;
         }
       } else {
-        // Transaction message was unsuccessful
-        postMessageResponse(transactionMessage.message, 'error');
-        setMessageResult(`Analysis failed: ${transactionMessage.message}`);
+        setMessageResult(`Could not process request: ${transactionMessage.message}`);
+        postMessageResponse(`Could not process request: ${transactionMessage.message}`, 'error');
       }
     } catch (error) {
-      console.error('Error analyzing message with server:', error);
-      
-      // Try to get more information about the error
-      const errorDetails = error instanceof Error ? 
-        {
-          name: error.name,
-          message: error.message,
-          stack: error.stack,
-          cause: error.cause
-        } : 
-        String(error);
-      
-      console.error('Error details:', JSON.stringify(errorDetails, null, 2));
-      
-      postMessageResponse(
-        `Failed to analyze message: ${error instanceof Error ? error.message : String(error)}`,
-        'error'
-      );
+      console.error('Error in message analysis:', error);
       setMessageResult(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      postMessageResponse(`Error processing your request: ${error instanceof Error ? error.message : String(error)}`, 'error');
     } finally {
       setIsProcessingMessage(false);
+    }
+  };
+  
+  // Add this function to simulate server response
+  const analyzePromptLocally = async (prompt: string) => {
+    // Simple regex pattern to detect send SOL requests
+    const solanaTransferPattern = /send|transfer|pay|sent|give|deposit|send to|transfer to|pay to/i;
+    const amountPattern = /\d+(\.\d+)?\s*SOL/i;
+    const addressPattern = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/;
+    
+    if (solanaTransferPattern.test(prompt)) {
+      // Extract amount - default to 0.01 SOL if not specified
+      let amount = "0.01";
+      const amountMatch = prompt.match(amountPattern);
+      if (amountMatch) {
+        amount = amountMatch[0].replace(/\s*SOL/i, '');
+      }
+      
+      // Extract address
+      const addressMatch = prompt.match(addressPattern);
+      if (addressMatch) {
+        // Return a successful transaction request
+        return {
+          success: true,
+          transactionType: TransactionType.TRANSFER_SOL,
+          message: "Transaction request detected",
+          data: {
+            amount: amount,
+            recipientAddress: addressMatch[0]
+          }
+        };
+      }
+    }
+    
+    // No valid transaction request detected
+    return {
+      success: false,
+      message: "No valid transaction request detected in the message"
+    };
+  };
+
+  // Add this function to execute the pending transaction when user confirms
+  const executePendingTransaction = async () => {
+    if (!pendingTransaction) {
+      setMessageResult("No pending transaction to execute");
+      return;
+    }
+    
+    try {
+      setMessageResult(`Executing transaction: ${pendingTransaction.amount} SOL to ${pendingTransaction.recipientAddress}`);
+      
+      // Call the send transaction function
+      if (wallet && isBackupConfirmed) {
+        const result = await sendTransaction(pendingTransaction.recipientAddress, pendingTransaction.amount);
+        
+        // Send the result back to the chat component
+        if (result.success) {
+          postMessageResponse(
+            `Successfully sent ${pendingTransaction.amount} SOL to ${pendingTransaction.recipientAddress}.\nTransaction signature: ${result.signature}`,
+            'success',
+            result
+          );
+          setMessageResult(`Transaction successful: ${result.message}`);
+        } else {
+          postMessageResponse(`Transaction failed: ${result.message}`, 'error', result);
+          setMessageResult(`Transaction failed: ${result.message}`);
+        }
+      } else {
+        postMessageResponse(
+          'Wallet not ready for transactions. Please create and back up your wallet first.',
+          'error'
+        );
+        setMessageResult('Wallet not ready for transactions');
+      }
+      
+      // Clear the pending transaction
+      setPendingTransaction(null);
+    } catch (error) {
+      console.error('Error executing transaction:', error);
+      postMessageResponse(
+        `Error executing transaction: ${error instanceof Error ? error.message : String(error)}`,
+        'error'
+      );
+      setMessageResult(`Error executing transaction: ${error instanceof Error ? error.message : String(error)}`);
+      setPendingTransaction(null);
     }
   };
 
@@ -241,16 +318,29 @@ const EmbeddedWallet = () => {
           // First, update UI to show we received the message
           setMessageResult('Message received: ' + message.prompt);
           
-          // Process with the server if wallet is ready
-          if (wallet && isBackupConfirmed) {
-            console.log('Wallet is ready, sending to analyzeMessageWithServer');
-            await analyzeMessageWithServer(message.prompt);
+          // Check if this is a confirmation response
+          if (pendingTransaction && (message.prompt.trim().toUpperCase() === 'Y' || 
+              message.prompt.trim().toUpperCase() === 'YES')) {
+            console.log('Confirmation received, executing transaction');
+            await executePendingTransaction();
+          } else if (pendingTransaction && (message.prompt.trim().toUpperCase() === 'N' || 
+              message.prompt.trim().toUpperCase() === 'NO')) {
+            console.log('Transaction declined by user');
+            setMessageResult('Transaction cancelled');
+            postMessageResponse('Transaction cancelled by user', 'info');
+            setPendingTransaction(null);
           } else {
-            console.warn('Wallet not ready:', { wallet: !!wallet, isBackupConfirmed });
-            postMessageResponse(
-              'Wallet not created or not backed up. Please set up your wallet first.',
-              'error'
-            );
+            // Process with the server if wallet is ready
+            if (wallet && isBackupConfirmed) {
+              console.log('Wallet is ready, sending to analyzeMessageWithServer');
+              await analyzeMessageWithServer(message.prompt);
+            } else {
+              console.warn('Wallet not ready:', { wallet: !!wallet, isBackupConfirmed });
+              postMessageResponse(
+                'Wallet not created or not backed up. Please set up your wallet first.',
+                'error'
+              );
+            }
           }
         } else {
           console.warn('Unsupported message type:', message.type);
@@ -273,7 +363,7 @@ const EmbeddedWallet = () => {
       console.log('Removing message event listener');
       window.removeEventListener('message', handleMessage);
     };
-  }, [wallet, isBackupConfirmed, sendTransaction, address, balanceFormatted, refreshBalance]);
+  }, [wallet, isBackupConfirmed, sendTransaction, address, balanceFormatted, refreshBalance, pendingTransaction]);
 
   // Generate unique device ID
   const generateDeviceId = () => {
@@ -507,30 +597,15 @@ const EmbeddedWallet = () => {
           </p>
         </section>
         
-        {/* Transaction testing section */}
         <section className="p-4 bg-blue-50 rounded-lg">
-          <h3 className="font-medium text-gray-800 mb-2">Transaction Test</h3>
-          <div className="flex flex-col gap-2">
-            <input
-              type="text"
-              className="w-full py-2 px-4 bg-white border border-gray-300 rounded"
-              placeholder="Enter recipient SOL address"
-              value={recipientAddress}
-              onChange={(e) => setRecipientAddress(e.target.value)}
-            />
-            <button
-              onClick={handleManualSend}
-              className="w-full py-2 px-4 bg-blue-600 text-white rounded hover:bg-blue-700"
-            >
-              Send 0.01 SOL
-            </button>
-            {sendResult && (
-              <div className={`mt-2 p-2 text-sm rounded ${
-                sendResult.includes('successful') ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-              }`}>
-                {sendResult}
-              </div>
-            )}
+          <h3 className="font-medium text-gray-800 mb-2">Wallet Status</h3>
+          <p className="text-sm text-gray-600">
+            Your wallet is ready to send and receive transactions. Use the chat interface to send SOL by typing commands like:
+          </p>
+          <div className="mt-2 p-3 bg-white rounded-lg border border-blue-200">
+            <p className="text-sm font-medium text-blue-700">
+              "Send 0.01 SOL to [address]"
+            </p>
           </div>
         </section>
         

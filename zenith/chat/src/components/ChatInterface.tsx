@@ -10,82 +10,88 @@ const EMBEDDED_WALLET_URL = 'http://localhost:5173';
 interface ChatMessage {
   text: string;
   isUser: boolean;
+  type?: string;
+  data?: any;
 }
 
-// API message type definition
+// API message format for communication with embedded wallet
 interface ApiMessage {
   type: string;
   prompt: string;
 }
 
-// Response message type definition
-interface ResponseMessage {
-  type: string;
-  response: string;
-  status: 'success' | 'error' | 'info';
-  data?: any;
-}
-
 const ChatInterface = () => {
   const [messages, setMessages] = useState<ChatMessage[]>([
-    { text: "Hello! I'm Zenith AI Agent. How can I assist you today?", isUser: false }
+    { text: "How can I assist you today?", isUser: false },
   ]);
-  const [inputValue, setInputValue] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [inputValue, setInputValue] = useState("");
   const [isProcessing, setIsProcessing] = useState(false);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
+  // Scroll to bottom when messages change
   useEffect(() => {
-    scrollToBottom();
+    setTimeout(() => {
+      scrollAreaRef.current?.scrollTo({
+        top: messagesEndRef.current?.offsetTop,
+        behavior: 'smooth'
+      });
+    }, 100);
   }, [messages]);
 
-  // Add response message listener
+  // Event listener for messages from the embedded wallet
   useEffect(() => {
-    const handleWalletResponse = (event: MessageEvent) => {
-      // Message format validation
-      if (event.data && typeof event.data === 'object' && 
-          'type' in event.data && event.data.type === 'response' &&
-          'response' in event.data && 'status' in event.data) {
+    const handleWalletMessage = (event: MessageEvent) => {
+      // Check origin for security
+      if (new URL(event.origin).origin !== new URL(EMBEDDED_WALLET_URL).origin) {
+        console.warn('Received message from unauthorized origin:', event.origin);
+        return;
+      }
+      
+      console.log('Received message from wallet:', event.data);
+      
+      // Handle ResponseMessage format
+      if (event.data && typeof event.data === 'object' && 'type' in event.data && event.data.type === 'response') {
+        const { response, status, data } = event.data;
         
-        const responseData = event.data as ResponseMessage;
-        console.log('Received response from wallet:', responseData);
-        
-        // Create a styled message based on status
-        let messageStyle = '';
-        
-        switch (responseData.status) {
-          case 'success':
-            messageStyle = '✅ ';
-            break;
-          case 'error':
-            messageStyle = '❌ ';
-            break;
-          case 'info':
-            messageStyle = 'ℹ️ ';
-            break;
-          default:
-            messageStyle = '';
+        if (response) {
+          // Handle confirmation type messages that require user input
+          const isConfirmation = data && data.type === 'confirmation';
+          
+          setMessages(prev => [...prev, { 
+            text: response,
+            isUser: false,
+            type: isConfirmation ? 'confirmation' : status,
+            data
+          }]);
+          
+          // If processing was happening, it's now complete
+          setIsProcessing(false);
         }
+      } else if (event.data && typeof event.data === 'object' && 'message' in event.data) {
+        // Original format handling (kept for backward compatibility)
+        const { message, status, data } = event.data;
         
-        // Add styled message to chat
-        setMessages(prev => [...prev, { 
-          text: messageStyle + responseData.response,
-          isUser: false
-        }]);
-        
-        // Set processing complete
-        setIsProcessing(false);
+        if (message) {
+          const isConfirmation = data && data.type === 'confirmation';
+          
+          setMessages(prev => [...prev, { 
+            text: message,
+            isUser: false,
+            type: isConfirmation ? 'confirmation' : status,
+            data
+          }]);
+          
+          setIsProcessing(false);
+        }
       }
     };
     
-    window.addEventListener('message', handleWalletResponse);
+    window.addEventListener('message', handleWalletMessage);
     
     return () => {
-      window.removeEventListener('message', handleWalletResponse);
+      window.removeEventListener('message', handleWalletMessage);
     };
   }, []);
 
@@ -145,94 +151,125 @@ const ChatInterface = () => {
     
     // Clear input immediately
     setInputValue('');
-    
-    // Add waiting message if response takes more than 3 seconds
-    const timeoutId = setTimeout(() => {
-      // Only add message if still processing (no response received yet)
-      if (isProcessing) {
-        setMessages(prev => [...prev, { 
-          text: "Processing your request...", 
-          isUser: false 
-        }]);
-      }
-    }, 3000);
-    
-    // Cleanup function
-    return () => clearTimeout(timeoutId);
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  // Render message with appropriate styling
+  const renderMessage = (message: ChatMessage, index: number) => {
+    // Determine message styling based on sender
+    const messageClasses = message.isUser
+      ? "bg-gradient-to-r from-blue-400 to-indigo-500 text-white rounded-lg px-4 py-3 max-w-[70%] ml-auto shadow-sm"
+      : "bg-white border border-gray-200 text-gray-800 rounded-lg px-4 py-3 max-w-[70%] shadow-sm";
+      
+    // Add different styling for confirmation messages
+    const confirmationClass = message.type === 'confirmation' 
+      ? "bg-amber-50 border border-amber-300 text-gray-800" 
+      : "";
+      
+    // Add different styling for success/error messages
+    const statusClass = !message.isUser && message.type === 'success'
+      ? "bg-emerald-50 border border-emerald-300 text-gray-800"
+      : message.type === 'error'
+        ? "bg-rose-50 border border-rose-300 text-gray-800"
+        : "";
+    
+    return (
+      <div key={index} className={`mb-3 ${message.isUser ? "text-right" : "text-left"}`}>
+        <div className={`inline-block ${messageClasses} ${confirmationClass} ${statusClass}`}>
+          <p className="whitespace-pre-wrap break-words text-sm">{message.text}</p>
+          
+          {/* Add confirmation buttons if needed */}
+          {message.type === 'confirmation' && (
+            <div className="flex justify-center gap-3 mt-3">
+              <Button 
+                onClick={() => handleConfirmationResponse('Y')}
+                className="bg-emerald-500 hover:bg-emerald-600 text-white shadow-sm"
+                size="sm"
+              >
+                Yes
+              </Button>
+              <Button 
+                onClick={() => handleConfirmationResponse('N')}
+                className="bg-rose-500 hover:bg-rose-600 text-white shadow-sm"
+                size="sm"
+              >
+                No
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+  
+  // Handle confirmation response
+  const handleConfirmationResponse = (response: string) => {
+    // Add the user's response to the chat
+    setMessages(prev => [...prev, { text: response, isUser: true }]);
+    
+    // Send the response to the wallet
+    const message: ApiMessage = {
+      type: "text",
+      prompt: response
+    };
+    
+    // Find wallet iframe
+    const walletFrame = document.querySelector('iframe[src*="wallet"]') || 
+                        document.querySelector('iframe[title="Embedded Wallet"]');
+    
+    if (walletFrame) {
+      try {
+        (walletFrame as HTMLIFrameElement).contentWindow?.postMessage(message, EMBEDDED_WALLET_URL);
+        console.log('Confirmation response sent to wallet:', message);
+      } catch (error) {
+        console.error('Error sending confirmation to iframe:', error);
+      }
+    }
+  };
+
+  // Handle input changes
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputValue(e.target.value);
+  };
+
+  // Handle key press for sending message
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSendMessage();
     }
   };
 
-  // Helper function to render message with appropriate styling
-  const renderMessage = (message: ChatMessage, index: number) => {
-    // Special styling for transaction results
-    let messageClass = message.isUser 
-      ? 'bg-gradient-to-r from-web3-purple to-web3-blue text-white'
-      : 'bg-gray-100';
-    
-    // Add special styling for response types
-    if (!message.isUser) {
-      if (message.text.startsWith('✅')) {
-        messageClass = 'bg-green-100 border border-green-300';
-      } else if (message.text.startsWith('❌')) {
-        messageClass = 'bg-red-100 border border-red-300';
-      } else if (message.text.startsWith('ℹ️')) {
-        messageClass = 'bg-blue-100 border border-blue-300';
-      }
-    }
-
-    return (
-      <div 
-        key={index} 
-        className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-      >
-        <div 
-          className={`max-w-[80%] p-3 rounded-lg ${messageClass}`}
-        >
-          <p className="whitespace-pre-wrap">{message.text}</p>
-        </div>
-      </div>
-    );
-  };
-
   return (
-    <div className="flex flex-col h-[70vh] border rounded-lg shadow-sm bg-white">
-      <div className="p-4 border-b">
-        <h2 className="text-xl font-semibold">Zenith AI Agent</h2>
+    <div className="flex flex-col h-[calc(100vh-10rem)] border rounded-lg overflow-hidden bg-white shadow-md">
+      <div className="px-4 py-3 bg-gradient-to-r from-gray-50 to-gray-100 border-b">
+        <h2 className="text-md font-semibold text-gray-800">ZENITH Chat</h2>
       </div>
       
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
+      <ScrollArea ref={scrollAreaRef} className="flex-1 px-4 py-3 bg-gray-50">
+        <div className="space-y-3">
           {messages.map((message, index) => renderMessage(message, index))}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
       
-      <div className="border-t p-4">
-        <div className="flex items-center gap-2">
-          <textarea 
-            className="flex-1 resize-none border rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-web3-purple"
-            placeholder="Type your message..."
-            rows={1}
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={handleKeyPress}
-            disabled={isProcessing}
-            ref={inputRef}
-          />
-          <Button 
-            onClick={handleSendMessage}
-            className="bg-gradient-to-r from-web3-purple to-web3-blue hover:opacity-90"
-            disabled={isProcessing}
-          >
-            <Send className="h-5 w-5" />
-          </Button>
-        </div>
+      <div className="px-4 py-3 border-t bg-white flex items-center">
+        <input
+          ref={inputRef}
+          className="flex-1 px-3 py-2 text-sm border rounded-l-md focus:outline-none focus:ring-1 focus:ring-indigo-400 focus:border-indigo-400"
+          placeholder={isProcessing ? "Processing your request..." : "Type a message..."}
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyPress}
+          disabled={isProcessing}
+        />
+        <Button 
+          onClick={handleSendMessage}
+          className="rounded-l-none bg-indigo-500 hover:bg-indigo-600" 
+          disabled={isProcessing || inputValue.trim() === ''}
+          size="sm"
+        >
+          <Send className="h-4 w-4" />
+        </Button>
       </div>
     </div>
   );

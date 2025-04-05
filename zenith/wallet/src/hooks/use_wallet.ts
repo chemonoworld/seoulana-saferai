@@ -6,6 +6,13 @@ import { decryptData } from '@/utils/encryption';
 
 const DEVNET_RPC_URL = "https://api.devnet.solana.com";
 
+// Transaction result interface
+interface TransactionResult {
+    success: boolean;
+    message: string;
+    signature?: string;
+}
+
 export const useWallet = () => {
     const [backupPrivKeyshare, setBackupPrivKeyshare] = useState<string | null>(null);
 
@@ -78,69 +85,71 @@ export const useWallet = () => {
      * @param recipientAddress Recipient wallet address (base58 format)
      * @returns Transaction signature (if successful) or error message (if failed)
      */
-    async function sendTransaction(recipientAddress: string): Promise<{ success: boolean; message: string; signature?: string }> {
+    async function sendTransaction(recipientAddress: string, amount?: string): Promise<TransactionResult> {
         try {
-            // Check keypair
             if (!recoveredKeypair) {
-                return { success: false, message: "No recovered keypair found. Please load your wallet first." };
+                console.error('Keypair is not available');
+                return { success: false, message: 'Wallet is not ready. Please create or unlock your wallet first.' };
             }
 
             // Validate recipient address
-            let recipientPubkey: PublicKey;
             try {
-                recipientPubkey = new PublicKey(recipientAddress);
-            } catch (error) {
-                return { success: false, message: "Invalid recipient address." };
+                new PublicKey(recipientAddress);
+            } catch (err) {
+                console.error('Invalid recipient address:', err);
+                return { success: false, message: 'Invalid recipient address' };
             }
 
-            // Amount to send (0.01 SOL = 10_000_000 Lamports)
-            const amountInLamports = 0.01 * LAMPORTS_PER_SOL;
+            // Use specified amount or default to 0.01 SOL
+            const amountInSOL = amount ? parseFloat(amount) : 0.01;
+            const lamportsToSend = amountInSOL * LAMPORTS_PER_SOL;
 
             // Create connection
             const connection = new Connection(DEVNET_RPC_URL, 'confirmed');
 
-            // Check sender balance
-            const senderBalance = await connection.getBalance(recoveredKeypair.publicKey);
-            if (senderBalance < amountInLamports + 5000) { // 5000 lamports for estimated transaction fee
-                return { success: false, message: "Insufficient balance. You need at least 0.01 SOL + fee." };
+            // Check wallet balance
+            const walletBalance = await connection.getBalance(recoveredKeypair.publicKey);
+
+            if (walletBalance < lamportsToSend + 5000) { // Add some for transaction fee
+                return {
+                    success: false,
+                    message: `Insufficient balance. You have ${walletBalance / LAMPORTS_PER_SOL} SOL but need at least ${amountInSOL + 0.000005} SOL.`
+                };
             }
 
-            // Get recent blockhash
-            const { blockhash } = await connection.getLatestBlockhash();
+            console.log(`Sending ${amountInSOL} SOL to ${recipientAddress}...`);
 
             // Create transaction
             const transaction = new Transaction().add(
                 SystemProgram.transfer({
                     fromPubkey: recoveredKeypair.publicKey,
-                    toPubkey: recipientPubkey,
-                    lamports: amountInLamports,
+                    toPubkey: new PublicKey(recipientAddress),
+                    lamports: lamportsToSend
                 })
             );
 
-            // Set blockhash and fee payer
-            transaction.recentBlockhash = blockhash;
-            transaction.feePayer = recoveredKeypair.publicKey;
-
-            // Sign and send transaction
+            // Send and confirm transaction
             const signature = await sendAndConfirmTransaction(
                 connection,
                 transaction,
                 [recoveredKeypair]
             );
 
-            // Refresh balance
-            await refreshBalance();
+            console.log('Transaction successful with signature:', signature);
+
+            // Refresh balance after transaction
+            setTimeout(() => refreshBalance(), 2000);
 
             return {
                 success: true,
-                message: "Successfully sent 0.01 SOL.",
+                message: `Successfully sent ${amountInSOL} SOL to ${recipientAddress}`,
                 signature
             };
         } catch (error) {
-            console.error("Transaction error:", error);
+            console.error('Error sending transaction:', error);
             return {
                 success: false,
-                message: `Error during transaction: ${error instanceof Error ? error.message : String(error)}`
+                message: error instanceof Error ? error.message : String(error)
             };
         }
     }
