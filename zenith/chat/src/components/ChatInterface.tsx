@@ -48,9 +48,26 @@ const ChatInterface = () => {
         const responseData = event.data as ResponseMessage;
         console.log('Received response from wallet:', responseData);
         
-        // Include status in messages for styling
+        // Create a styled message based on status
+        let messageStyle = '';
+        
+        switch (responseData.status) {
+          case 'success':
+            messageStyle = '✅ ';
+            break;
+          case 'error':
+            messageStyle = '❌ ';
+            break;
+          case 'info':
+            messageStyle = 'ℹ️ ';
+            break;
+          default:
+            messageStyle = '';
+        }
+        
+        // Add styled message to chat
         setMessages(prev => [...prev, { 
-          text: responseData.response,
+          text: messageStyle + responseData.response,
           isUser: false
         }]);
         
@@ -136,6 +153,38 @@ const ChatInterface = () => {
     }
   };
 
+  // Helper function to render message with appropriate styling
+  const renderMessage = (message: ChatMessage, index: number) => {
+    // Special styling for transaction results
+    let messageClass = message.isUser 
+      ? 'bg-gradient-to-r from-web3-purple to-web3-blue text-white'
+      : 'bg-gray-100';
+    
+    // Add special styling for response types
+    if (!message.isUser) {
+      if (message.text.startsWith('✅')) {
+        messageClass = 'bg-green-100 border border-green-300';
+      } else if (message.text.startsWith('❌')) {
+        messageClass = 'bg-red-100 border border-red-300';
+      } else if (message.text.startsWith('ℹ️')) {
+        messageClass = 'bg-blue-100 border border-blue-300';
+      }
+    }
+
+    return (
+      <div 
+        key={index} 
+        className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
+      >
+        <div 
+          className={`max-w-[80%] p-3 rounded-lg ${messageClass}`}
+        >
+          <p className="whitespace-pre-wrap">{message.text}</p>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-[70vh] border rounded-lg shadow-sm bg-white">
       <div className="p-4 border-b">
@@ -144,22 +193,7 @@ const ChatInterface = () => {
       
       <ScrollArea className="flex-1 p-4">
         <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div 
-              key={index} 
-              className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-            >
-              <div 
-                className={`max-w-[80%] p-3 rounded-lg ${
-                  message.isUser 
-                    ? 'bg-gradient-to-r from-web3-purple to-web3-blue text-white' 
-                    : 'bg-gray-100'
-                }`}
-              >
-                <p className="whitespace-pre-wrap">{message.text}</p>
-              </div>
-            </div>
-          ))}
+          {messages.map((message, index) => renderMessage(message, index))}
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
