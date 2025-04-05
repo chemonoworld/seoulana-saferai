@@ -14,7 +14,7 @@ export const useWallet = () => {
     const [pubkey, setPubkey] = useState<string | null>(null);
     const [address, setAddress] = useState<string | null>(null);
     const [balance, setBalance] = useState<string | null>(null);
-
+    const [recoveredKeypair, setRecoveredKeypair] = useState<Keypair | null>(null);
     useEffect(() => {
         refreshBalance();
     }, [address]);
@@ -43,22 +43,26 @@ export const useWallet = () => {
         setBackupPrivKeyshare(clientBackupKeyshare);
     }
 
-    function recoverWalletState(info: WalletInfo, password: string) {
+    async function recoverWalletState(info: WalletInfo, password: string) {
         const decryptedPrivKeyshare = decryptData(info.encryptedPrivKeyshare, password);
         setActivePrivKeyshare(decryptedPrivKeyshare);
         setBackupPrivKeyshare(null);
         setPubkey(info.pubkey);
         setAddress(info.address);
 
-        // testing
-        combineSharesForTesting(info, password);
-    }
-
-    async function combineSharesForTesting(info: WalletInfo, password: string) {
-        const { isSuccess } = await combineShares(info.pubkey, decryptData(info.encryptedPrivKeyshare, password));
+        // recover original privkey
+        const { isSuccess, originalPrivKey } = await combineShares(info.pubkey, decryptData(info.encryptedPrivKeyshare, password));
         if (!isSuccess) {
             throw new Error("Failed to combine shares");
         }
+
+        // 32 bytes -> expanded(64 bytes)
+        console.log("originalPrivKey", originalPrivKey);
+        if (!pubkey) {
+            throw new Error("Pubkey is not set");
+        }
+        const expandedPrivKey = Buffer.concat([originalPrivKey, Buffer.from(pubkey, 'hex')]);
+        setRecoveredKeypair(Keypair.fromSecretKey(expandedPrivKey));
     }
 
     function resetKeypair() {

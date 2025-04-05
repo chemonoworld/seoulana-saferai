@@ -95,12 +95,12 @@ const EmbeddedWallet = () => {
   }, [balance])
 
   // 지갑 잠금 해제
-  const handleUnlockWallet = (password: string) => {
+  const handleUnlockWallet = async (password: string) => {
     const storedWallet = localStorage.getItem('zenith-wallet');
     if (storedWallet) {
       try {
         setWallet(JSON.parse(storedWallet));
-        recoverWalletState(JSON.parse(storedWallet), password);
+        await recoverWalletState(JSON.parse(storedWallet), password);
         setShowUnlockModal(false);
       } catch (err) {
         console.error("Wallet unlock error:", err);

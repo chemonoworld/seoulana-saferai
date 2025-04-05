@@ -45,7 +45,7 @@ export async function splitPrivKey(
 export async function combineShares(
     pubkey: string,
     activeSecretKeyshare: string,
-): Promise<{ isSuccess: boolean }> {
+): Promise<{ isSuccess: boolean, originalPrivKey: Buffer }> {
     const resp = await reqShare({
         pubkey,
     });
@@ -58,7 +58,7 @@ export async function combineShares(
 
     const combinedKey = await combine(shares);
 
-    // const originalPrivKey = Buffer.from(combinedKey);
+    const originalPrivKey = Buffer.from(combinedKey);
 
     // verification
     {
@@ -67,5 +67,5 @@ export async function combineShares(
         }
     }
 
-    return { isSuccess: true };
+    return { isSuccess: true, originalPrivKey };
 }
