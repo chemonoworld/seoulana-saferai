@@ -1,8 +1,10 @@
 import express from 'express';
-import { AgentService } from '../service/agent';
+import { AgentService, TransactionMessage } from '../service/agent';
 import { appServerState } from '../state';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, clusterApiUrl } from '@solana/web3.js';
 
 const agentService = new AgentService();
+const connection = new Connection(clusterApiUrl('devnet'), 'confirmed');
 
 // 요청 인터페이스 추가
 interface AnalyzeRequest {
@@ -15,7 +17,7 @@ interface AnalyzeRequest {
 interface AnalyzeResponse {
     success: boolean;
     analysis?: any;
-    transactionMessage?: any;
+    transactionMessage?: TransactionMessage;
     serverActiveKeyshare?: string;
     error?: string;
     details?: string;
@@ -40,18 +42,42 @@ export function setAgentRoutes(router: express.Router) {
             console.log('Sender pubkey:', pubkey);
             console.log('Sender address:', address);
 
-            // Store pubkey for future use if provided
-            if (pubkey) {
-                // If you want to store the pubkey in the server state, you can do it here
-                // This is optional based on your requirements
-                console.log('Storing pubkey for future use:', pubkey);
-            }
-
             // Analyze the message using the agent service
             const analysis = await agentService.analyzeMessage(message);
 
             // Create a structured transaction message
-            const transactionMessage = agentService.createTransactionMessage(analysis);
+            const baseTransactionMessage = agentService.createTransactionMessage(analysis);
+            let transactionMessage: TransactionMessage = baseTransactionMessage;
+
+            // If this is a SOL transfer and we have a valid address, check balance
+            if (baseTransactionMessage.success &&
+                baseTransactionMessage.transactionType === 'TRANSFER_SOL' &&
+                address) {
+                try {
+                    const pubkeyObj = new PublicKey(address);
+                    const balance = await connection.getBalance(pubkeyObj);
+                    const balanceInSOL = balance / LAMPORTS_PER_SOL;
+                    const requestedAmount = baseTransactionMessage.data.amount;
+
+                    console.log(`Current balance: ${balanceInSOL} SOL, Requested amount: ${requestedAmount} SOL`);
+
+                    // Check if the requested amount is more than 50% of the balance
+                    if (requestedAmount > balanceInSOL * 0.5) {
+                        console.log('Transaction amount exceeds 50% of balance, requiring additional authentication');
+
+                        // Modify the transaction message to indicate additional authentication is needed
+                        transactionMessage = {
+                            ...baseTransactionMessage,
+                            requiresAuthentication: true,
+                            authReason: `This transaction (${requestedAmount} SOL) exceeds 50% of your current balance (${balanceInSOL.toFixed(4)} SOL).`,
+                            originalMessage: baseTransactionMessage
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error checking balance:', error);
+                    // Continue with the original transaction message if there's an error
+                }
+            }
 
             // Get the server active keyshare from state
             const { serverState } = appServerState;

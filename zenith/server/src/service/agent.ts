@@ -30,6 +30,17 @@ const transactionSchema = z.object({
 
 export type TransactionData = z.infer<typeof transactionSchema>;
 
+// Extended transaction message interface
+export interface TransactionMessage {
+    success: boolean;
+    transactionType: string;
+    data?: any;
+    message: string;
+    requiresAuthentication?: boolean;
+    authReason?: string;
+    originalMessage?: TransactionMessage;
+}
+
 export class AgentService {
     private model: ChatOpenAI;
     private parser;
@@ -116,12 +127,7 @@ export class AgentService {
     /**
      * Creates a structured transaction message based on the analysis
      */
-    createTransactionMessage(txData: TransactionData): {
-        success: boolean;
-        transactionType: string;
-        data?: any;
-        message: string;
-    } {
+    createTransactionMessage(txData: TransactionData): TransactionMessage {
         // If confidence is too low or type is unknown, return an error
         if (txData.confidence < 0.5 || txData.type === TransactionType.UNKNOWN) {
             return {

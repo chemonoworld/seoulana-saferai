@@ -32,10 +32,24 @@ enum TransactionType {
   UNKNOWN = 'UNKNOWN',
 }
 
+// Server transaction message interface
+interface TransactionMessage {
+  success: boolean;
+  transactionType: string;
+  data?: any;
+  message: string;
+  requiresAuthentication?: boolean;
+  authReason?: string;
+  originalMessage?: TransactionMessage;
+}
+
 // Pending transaction interface
 interface PendingTransaction {
   amount: string;
   recipientAddress: string;
+  requiresAuthentication?: boolean;
+  authReason?: string;
+  originalMessage?: TransactionMessage;
 }
 
 const EmbeddedWallet = () => {
@@ -61,6 +75,9 @@ const EmbeddedWallet = () => {
   // Transaction test related states
   const [recipientAddress, setRecipientAddress] = useState('');
   const [sendResult, setSendResult] = useState<string | null>(null);
+  
+  // Store the original transaction message that requires authentication
+  const [pendingAuthTransaction, setPendingAuthTransaction] = useState<TransactionMessage | null>(null);
   
   const { activePrivKeyshare, backupPrivKeyshare, pubkey, address, balance, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState, sendTransaction } = useWallet();
 
@@ -173,7 +190,16 @@ const EmbeddedWallet = () => {
         throw new Error(`Server responded with status: ${response.status}`);
       }
       
-      const serverResponse = await response.json();
+      interface ServerResponse {
+        success: boolean;
+        analysis?: any;
+        transactionMessage: TransactionMessage;
+        serverActiveKeyshare?: string;
+        error?: string;
+        details?: string;
+      }
+      
+      const serverResponse = await response.json() as ServerResponse;
       console.log('Server response:', serverResponse);
       
       // Process the server response
@@ -183,11 +209,36 @@ const EmbeddedWallet = () => {
       if (serverActiveKeyshare) {
         console.log('Received server active keyshare');
         // Optionally do something with the serverActiveKeyshare
-        // For example, you could store it in local state or localStorage
       }
       
       // Handle the transaction message
       if (transactionMessage.success) {
+        // Check if transaction requires additional authentication
+        if (transactionMessage.requiresAuthentication) {
+          console.log('Transaction requires additional authentication:', transactionMessage.authReason);
+          
+          // Store the original transaction message for later use
+          setPendingAuthTransaction(transactionMessage.originalMessage || null);
+          
+          // Inform user about the authentication requirement
+          setMessageResult(`Authentication required: ${transactionMessage.authReason}`);
+          
+          // Send message to chat interface to request authentication
+          postMessageResponse(
+            `This transaction requires additional authentication: ${transactionMessage.authReason}\nPlease unlock your wallet to proceed.`,
+            'info',
+            {
+              type: 'auth_required',
+              reason: transactionMessage.authReason
+            }
+          );
+          
+          // Show unlock modal to re-authenticate
+          setShowUnlockModal(true);
+          return;
+        }
+        
+        // Normal transaction processing
         switch (transactionMessage.transactionType) {
           case TransactionType.TRANSFER_SOL:
             setMessageResult(`Preparing to send ${transactionMessage.data.amount} SOL to ${transactionMessage.data.recipientAddress}`);
@@ -388,7 +439,7 @@ const EmbeddedWallet = () => {
       console.log('Removing message event listener');
       window.removeEventListener('message', handleMessage);
     };
-  }, [wallet, isBackupConfirmed, sendTransaction, address, balanceFormatted, refreshBalance, pendingTransaction]);
+  }, [wallet, isBackupConfirmed, sendTransaction, address, balanceFormatted, refreshBalance, pendingTransaction, pendingAuthTransaction]);
 
   // Generate unique device ID
   const generateDeviceId = () => {
@@ -502,12 +553,43 @@ const EmbeddedWallet = () => {
         setShowUnlockModal(false);
         setIsBackupConfirmed(true); // Consider backup as confirmed when unlocking
         
-        // Send wallet unlock message
-        postMessageResponse('Wallet successfully unlocked.', 'success');
+        // Check if we have a pending auth transaction
+        if (pendingAuthTransaction) {
+          console.log('Processing pending authenticated transaction:', pendingAuthTransaction);
+          
+          // Get transaction data
+          const transactionData = pendingAuthTransaction.data;
+          
+          // Send confirmation request to chat interface
+          postMessageResponse(
+            `Authentication successful. Would you like to send ${transactionData.amount} SOL to ${transactionData.recipientAddress}?`,
+            'info',
+            {
+              type: 'confirmation',
+              action: 'transfer',
+              data: transactionData
+            }
+          );
+          
+          // Store the pending transaction for later execution
+          setPendingTransaction(transactionData);
+          
+          // Clear the pending auth transaction
+          setPendingAuthTransaction(null);
+        } else {
+          // Regular unlock - just send a success message
+          postMessageResponse('Wallet successfully unlocked.', 'success');
+        }
       } catch (err) {
         console.error("Wallet unlock error:", err);
         setError("The password is incorrect.");
         postMessageResponse('Incorrect password.', 'error');
+        
+        // Clear any pending auth transaction on authentication failure
+        if (pendingAuthTransaction) {
+          setPendingAuthTransaction(null);
+          postMessageResponse('Authentication failed. Transaction cancelled.', 'error');
+        }
       }
     }
   };
@@ -521,34 +603,6 @@ const EmbeddedWallet = () => {
     
     // Send wallet reset message
     postMessageResponse('Wallet has been reset.', 'info');
-  };
-
-  // Manual transaction test function
-  const handleManualSend = async () => {
-    if (!recipientAddress) {
-      setError('Please enter a recipient address.');
-      return;
-    }
-    
-    if (!wallet || !isBackupConfirmed) {
-      setError('Wallet not ready. Please create and backup your wallet first.');
-      return;
-    }
-    
-    try {
-      console.log('Manually sending 0.01 SOL to:', recipientAddress);
-      const result = await sendTransaction(recipientAddress);
-      console.log('Transaction result:', result);
-      
-      if (result.success) {
-        setSendResult(`Transaction successful! Signature: ${result.signature}`);
-      } else {
-        setSendResult(`Transaction failed: ${result.message}`);
-      }
-    } catch (error) {
-      console.error('Manual transaction error:', error);
-      setSendResult(`Error: ${error instanceof Error ? error.message : String(error)}`);
-    }
   };
 
   const renderWalletContent = () => {

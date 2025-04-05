@@ -34,6 +34,9 @@ export const useWallet = () => {
         const { clientActiveKeyshare, clientBackupKeyshare } = await splitPrivKey(secretKey);
         setActivePrivKeyshare(clientActiveKeyshare)
         setBackupPrivKeyshare(clientBackupKeyshare)
+
+        // Set the recovered keypair
+        setRecoveredKeypair(keypair);
     }
 
     async function generateWalletFromSecretKey(originalSecretKey: Buffer) {
@@ -48,6 +51,9 @@ export const useWallet = () => {
         const { clientActiveKeyshare, clientBackupKeyshare } = await splitPrivKey(privKey);
         setActivePrivKeyshare(clientActiveKeyshare);
         setBackupPrivKeyshare(clientBackupKeyshare);
+
+        // Set the recovered keypair
+        setRecoveredKeypair(keypair);
     }
 
     async function recoverWalletState(info: WalletInfo, password: string) {
