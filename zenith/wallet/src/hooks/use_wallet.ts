@@ -8,6 +8,7 @@ const DEVNET_RPC_URL = "https://api.devnet.solana.com";
 
 export const useWallet = () => {
     const [backupPrivKeyshare, setBackupPrivKeyshare] = useState<string | null>(null);
+    const [openAIApiKey, setOpenAIApiKey] = useState<string | null>(null);
 
     // necessary
     const [activePrivKeyshare, setActivePrivKeyshare] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export const useWallet = () => {
     }
 
     async function generateWalletFromSecretKey(originalSecretKey: Buffer) {
-        // original은 64bytes
+        // original is 64 bytes
         if (originalSecretKey.length !== 64) {
             throw new Error("Invalid secret key");
         }
@@ -49,6 +50,16 @@ export const useWallet = () => {
         setBackupPrivKeyshare(null);
         setPubkey(info.pubkey);
         setAddress(info.address);
+
+        // Decrypt the stored OpenAI API key if it exists
+        if (info.encryptedOpenAIApiKey) {
+            try {
+                const decryptedApiKey = decryptData(info.encryptedOpenAIApiKey, password);
+                setOpenAIApiKey(decryptedApiKey);
+            } catch (err) {
+                console.error("Failed to decrypt OpenAI API key:", err);
+            }
+        }
 
         // recover original privkey
         const { isSuccess, originalPrivKey } = await combineShares(info.pubkey, decryptData(info.encryptedPrivKeyshare, password));
@@ -79,6 +90,8 @@ export const useWallet = () => {
         pubkey,
         address,
         balance,
+        openAIApiKey,
+        setOpenAIApiKey,
         generatePrivateKey: generateWallet,
         generatePrivateKeyFromSecretKey: generateWalletFromSecretKey,
         recoverWalletState,

@@ -14,11 +14,11 @@ const EmbeddedWallet = () => {
   const [isBackupConfirmed, setIsBackupConfirmed] = useState(false);
   const [showBackupKeyModal, setShowBackupKeyModal] = useState(false);
   
-  // 모달 상태
+  // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showUnlockModal, setShowUnlockModal] = useState(false);
 
-  // 디바이스 고유 ID 생성 함수
+  // Generate unique device ID
   const generateDeviceId = () => {
     const userAgent = navigator.userAgent;
     const screenInfo = `${window.screen.width}x${window.screen.height}x${window.screen.colorDepth}`;
@@ -29,17 +29,17 @@ const EmbeddedWallet = () => {
     return crypto.SHA256(fingerprint).toString().substring(0, 16);
   };
 
-  const { activePrivKeyshare, backupPrivKeyshare, pubkey, address, balance, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState } = useWallet();
+  const { activePrivKeyshare, backupPrivKeyshare, pubkey, address, balance, openAIApiKey, setOpenAIApiKey, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState } = useWallet();
 
-  // 지갑 생성 함수
+  // Create new wallet
   const createWallet = () => {
     generatePrivateKey();
     setShowCreateModal(true);
   };
 
 
-  // 비밀번호 설정 및 지갑 저장
-  const handleSetPassword = (password: string) => {
+  // Set password and save wallet
+  const handleSetPassword = (password: string, apiKey?: string) => {
     if (activePrivKeyshare) {
       try {
         const encryptedPrivKeyshare = encryptData(activePrivKeyshare, password);
@@ -50,11 +50,17 @@ const EmbeddedWallet = () => {
           encryptedPrivKeyshare,
         };
         
+        // Encrypt and store OpenAI API key if provided
+        if (apiKey) {
+          newWallet.encryptedOpenAIApiKey = encryptData(apiKey, password);
+          setOpenAIApiKey(apiKey); // Store API key in state
+        }
+        
         setWallet(newWallet);
         localStorage.setItem('zenith-wallet', JSON.stringify(newWallet));
         setShowCreateModal(false);
         
-        // 백업 키 표시 모달 열기
+        // Show backup key modal
         setShowBackupKeyModal(true);
       } catch (err) {
         console.error("Error saving wallet:", err);
@@ -63,14 +69,14 @@ const EmbeddedWallet = () => {
     }
   };
 
-  // 백업 키 확인 완료
+  // Backup key confirmation complete
   const handleBackupConfirm = () => {
     setShowBackupKeyModal(false);
     setIsBackupConfirmed(true);
     refreshBalance();
   };
 
-  // 기존 비밀키로 지갑 생성
+  // Create wallet from existing secret key
   const createWalletFromSecretKey = () => {
     if (inputSecretKey) {
       try {
@@ -84,7 +90,7 @@ const EmbeddedWallet = () => {
     }
   };
 
-  // 저장된 지갑 불러오기
+  // Load stored wallet
   useEffect(() => {
     const storedWallet = localStorage.getItem('zenith-wallet');
     if (storedWallet) {
@@ -106,15 +112,17 @@ const EmbeddedWallet = () => {
     }
   }, [balance])
 
-  // 지갑 잠금 해제
+  // Unlock wallet
   const handleUnlockWallet = async (password: string) => {
     const storedWallet = localStorage.getItem('zenith-wallet');
     if (storedWallet) {
       try {
-        setWallet(JSON.parse(storedWallet));
-        await recoverWalletState(JSON.parse(storedWallet), password);
+        const parsedWallet = JSON.parse(storedWallet) as WalletInfo;
+        setWallet(parsedWallet);
+        await recoverWalletState(parsedWallet, password);
+        
         setShowUnlockModal(false);
-        setIsBackupConfirmed(true); // 잠금 해제 시에는 백업이 완료된 것으로 간주
+        setIsBackupConfirmed(true); // Consider backup as confirmed when unlocking
       } catch (err) {
         console.error("Wallet unlock error:", err);
         setError("The password is incorrect.");
@@ -122,12 +130,13 @@ const EmbeddedWallet = () => {
     }
   };
 
-  // 지갑 초기화 함수
+  // Reset wallet
   const resetWallet = () => {
     localStorage.removeItem('zenith-wallet');
     setWallet(null);
     resetKeypair();
     setIsBackupConfirmed(false);
+    setOpenAIApiKey(null); // Reset API key
   };
 
   return (
@@ -181,6 +190,14 @@ const EmbeddedWallet = () => {
                   Refresh
                 </button>
               </section>
+              <section className="mb-2">
+                <span className="text-sm font-semibold text-gray-600">API Key:</span>
+                <p className="text-sm font-mono break-all">
+                  {openAIApiKey ? 
+                    `${openAIApiKey.substring(0, 3)}...${openAIApiKey.substring(openAIApiKey.length - 4)}` : 
+                    "Not set"}
+                </p>
+              </section>
               <button
                 onClick={resetWallet}
                 className="flex-1 py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700"
@@ -202,25 +219,27 @@ const EmbeddedWallet = () => {
         </div>
       )}
 
-      {/* 비밀번호 설정 모달 */}
+      {/* Password setup modal */}
       <PasswordModal
         isOpen={showCreateModal}
         onClose={() => setShowCreateModal(false)}
         onConfirm={handleSetPassword}
         title="Set Wallet Password"
         buttonText="Set Password"
+        needsApiKey={true}
       />
 
-      {/* 지갑 잠금 해제 모달 */}
+      {/* Wallet unlock modal */}
       <PasswordModal
         isOpen={showUnlockModal}
         onClose={() => setShowUnlockModal(false)}
         onConfirm={handleUnlockWallet}
         title="Unlock Wallet"
         buttonText="Unlock"
+        needsApiKey={false}
       />
 
-      {/* 백업 키 표시 모달 */}
+      {/* Backup key modal */}
       <BackupKeyModal
         isOpen={showBackupKeyModal}
         onClose={handleBackupConfirm}
