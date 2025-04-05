@@ -678,4 +678,3 @@ const EmbeddedWallet = () => {
 };
 
 export default EmbeddedWallet;
-
