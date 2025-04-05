@@ -29,7 +29,7 @@ const EmbeddedWallet = () => {
     return crypto.SHA256(fingerprint).toString().substring(0, 16);
   };
 
-  const { activePrivKeyshare, backupPrivKeyshare, pubkey, address, balance, openAIApiKey, setOpenAIApiKey, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState } = useWallet();
+  const { activePrivKeyshare, backupPrivKeyshare, pubkey, address, balance, refreshBalance, generatePrivateKey, generatePrivateKeyFromSecretKey, resetKeypair, recoverWalletState } = useWallet();
 
   // Create new wallet
   const createWallet = () => {
@@ -39,7 +39,7 @@ const EmbeddedWallet = () => {
 
 
   // Set password and save wallet
-  const handleSetPassword = (password: string, apiKey?: string) => {
+  const handleSetPassword = (password: string) => {
     if (activePrivKeyshare) {
       try {
         const encryptedPrivKeyshare = encryptData(activePrivKeyshare, password);
@@ -49,12 +49,6 @@ const EmbeddedWallet = () => {
           address: address!,
           encryptedPrivKeyshare,
         };
-        
-        // Encrypt and store OpenAI API key if provided
-        if (apiKey) {
-          newWallet.encryptedOpenAIApiKey = encryptData(apiKey, password);
-          setOpenAIApiKey(apiKey); // Store API key in state
-        }
         
         setWallet(newWallet);
         localStorage.setItem('zenith-wallet', JSON.stringify(newWallet));
@@ -136,7 +130,6 @@ const EmbeddedWallet = () => {
     setWallet(null);
     resetKeypair();
     setIsBackupConfirmed(false);
-    setOpenAIApiKey(null); // Reset API key
   };
 
   return (
@@ -190,14 +183,6 @@ const EmbeddedWallet = () => {
                   Refresh
                 </button>
               </section>
-              <section className="mb-2">
-                <span className="text-sm font-semibold text-gray-600">API Key:</span>
-                <p className="text-sm font-mono break-all">
-                  {openAIApiKey ? 
-                    `${openAIApiKey.substring(0, 3)}...${openAIApiKey.substring(openAIApiKey.length - 4)}` : 
-                    "Not set"}
-                </p>
-              </section>
               <button
                 onClick={resetWallet}
                 className="flex-1 py-2 px-4 bg-red-600 text-white rounded hover:bg-red-700"
@@ -226,7 +211,7 @@ const EmbeddedWallet = () => {
         onConfirm={handleSetPassword}
         title="Set Wallet Password"
         buttonText="Set Password"
-        needsApiKey={true}
+        needsApiKey={false}
       />
 
       {/* Wallet unlock modal */}
