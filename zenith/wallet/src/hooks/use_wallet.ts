@@ -56,9 +56,6 @@ export const useWallet = () => {
             throw new Error("Failed to combine shares");
         }
 
-        // 32 bytes -> expanded(64 bytes)
-        console.log("originalPrivKey", originalPrivKey);
-
         const expandedPrivKey = Buffer.concat([originalPrivKey, Buffer.from(info.pubkey, 'hex')]);
         setRecoveredKeypair(Keypair.fromSecretKey(expandedPrivKey));
     }
